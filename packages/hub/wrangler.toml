@@ -1,0 +1,28 @@
+name = "agentbus"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[vars]
+TESTNET = "false"
+RECIPIENT = "0xAABA9C5D26dd960715747B39986d3310693E6B4f"
+STRANGER_FREE_PER_DAY = "20"
+
+[[durable_objects.bindings]]
+name = "INBOX"
+class_name = "AgentInbox"
+
+[[durable_objects.bindings]]
+name = "SPACE"
+class_name = "Space"
+
+[[durable_objects.bindings]]
+name = "DIRECTORY"
+class_name = "Directory"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AgentInbox", "Space", "Directory"]
