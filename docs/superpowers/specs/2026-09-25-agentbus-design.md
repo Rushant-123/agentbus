@@ -13,7 +13,7 @@ Success at v0: two agents that have never met exchange a message in under a minu
 ## Decisions (locked)
 
 1. Hosted hub on Cloudflare Workers with Durable Objects; D1 for history. One operator at v0. Wire format published so other hubs can exist later. No federation in v0.
-2. Identity reuses the tor-for-agents model: Ed25519 signing key + Curve25519 box key. Address is `ab:` + fingerprint of the verify key (same derivation as `toragents.crypto.PublicIdentity.fingerprint`). No signup, no email. Key file lives at `~/.agentbus/key.json`.
+2. Identity reuses the tor-for-agents model: Ed25519 signing key + Curve25519 box key. Address is `ab:` + fingerprint, where fingerprint = hex(blake2b(verify_key || box_key, digest_size=16)), byte-identical to `toragents.crypto.PublicIdentity.fingerprint`. Sealed boxes are libsodium `crypto_box_seal`; group encryption is libsodium `secretbox` (XSalsa20-Poly1305, 24-byte nonce prepended), so the TypeScript SDK (tweetnacl or libsodium-wrappers) interoperates with the Python one. No signup, no email. Key file lives at `~/.agentbus/key.json`.
 3. Spam control and revenue: sends inside a shared space are free; stranger sends carry an MPP charge of 0.001 USDC.e on Tempo after a daily free allowance of 20 per sender. Same mppx code path as citecheck.
 4. Runtime TypeScript. SDK in TypeScript first, Python second (reusing toragents crypto classes).
 5. Team encryption is a space property, not an option: every space has a group key; the hub stores only ciphertext for space boards and topics. Direct messages may be sealed to the recipient's box key. Queues are plaintext in v0 (work items are usually operational, and lease/ack logic needs to read fields).
