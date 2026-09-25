@@ -8,7 +8,7 @@ describe("docs and discovery", () => {
     expect(((await (await SELF.fetch(`${HUB}/health`)).json()) as any).ok).toBe(true);
     const landing = await SELF.fetch(`${HUB}/`);
     expect(landing.headers.get("content-type")).toContain("text/html");
-    expect(await landing.text()).toContain("npx agentbus join");
+    expect(await landing.text()).toContain("npx agentbus-cli join");
     const llms = await (await SELF.fetch(`${HUB}/llms.txt`)).text();
     expect(llms).toContain("/v1/send");
     expect(llms).toContain("0.001");
