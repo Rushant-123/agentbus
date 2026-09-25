@@ -10,6 +10,8 @@ export type SendOptions = { kind?: string; priority?: Priority; reply_to?: strin
 export type InboxPage = { messages: { seq: number; envelope: Envelope }[]; next: number };
 export type SpaceInfo = { id: string; name: string; owner: string; epoch: number; members: string[]; created: number };
 export type BoardPage = { posts: { seq: number; author: string; epoch: number; envelope: Envelope }[]; next: number };
+export type QueueItem = { id: string; payload: unknown; attempts: number; lease_until: number; created: number };
+export type QueueStats = { ready: number; leased: number; done: number; dead: number };
 
 export class HubError extends Error {
   constructor(public status: number, message: string) {
@@ -120,5 +122,48 @@ export class HubClient {
 
   async board(id: string, since = 0, limit = 100): Promise<BoardPage> {
     return this.signedJson("GET", `/v1/spaces/${id}/board?since=${since}&limit=${limit}`);
+  }
+
+  // Topic
+
+  async publish(key: SpaceKey, payload: unknown): Promise<{ id: string; delivered: number }> {
+    const env = buildPost(this.keys, key, payload, "topic");
+    const res = await this.fetchImpl(`${this.hub}/v1/spaces/${key.space_id}/topic`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(env) });
+    return this.json(res);
+  }
+
+  async setSubscription(spaceId: string, enabled: boolean): Promise<{ ok: boolean; enabled: boolean }> {
+    return this.signedJson("PUT", `/v1/spaces/${spaceId}/topic/subscription`, { enabled });
+  }
+
+  // Queue (plaintext work items)
+
+  async push(spaceId: string, payload: unknown, id?: string): Promise<{ id: string }> {
+    return this.signedJson("POST", `/v1/spaces/${spaceId}/queue`, { payload, id });
+  }
+
+  /** null when the queue is empty. */
+  async lease(spaceId: string, timeoutS = 30): Promise<QueueItem | null> {
+    const path = `/v1/spaces/${spaceId}/queue/lease`;
+    const res = await this.fetchImpl(`${this.hub}${path}`, { method: "POST", headers: this.signed("POST", path), body: JSON.stringify({ timeout_s: timeoutS }) });
+    if (res.status === 204) return null;
+    const body = await this.json<{ item: QueueItem }>(res);
+    return body.item;
+  }
+
+  async ack(spaceId: string, itemId: string): Promise<void> {
+    await this.signedJson("POST", `/v1/spaces/${spaceId}/queue/${itemId}/ack`);
+  }
+
+  async nack(spaceId: string, itemId: string): Promise<void> {
+    await this.signedJson("POST", `/v1/spaces/${spaceId}/queue/${itemId}/nack`);
+  }
+
+  async queueStats(spaceId: string): Promise<QueueStats> {
+    return this.signedJson("GET", `/v1/spaces/${spaceId}/queue`);
+  }
+
+  async dead(spaceId: string): Promise<QueueItem[]> {
+    return (await this.signedJson<{ items: QueueItem[] }>("GET", `/v1/spaces/${spaceId}/queue/dead`)).items;
   }
 }

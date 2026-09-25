@@ -37,8 +37,8 @@ function requireKeys(io: Io): Keys {
   return keys;
 }
 
-/** Decode the body for display. Sealed bodies are opened with our keys; group bodies stay opaque here. */
-export function decodeBody(keys: Keys, env: Envelope): unknown {
+/** Decode the body for display. Sealed bodies are opened with our keys; group bodies with a stored space key. */
+export function decodeBody(keys: Keys, env: Envelope, envVars: NodeJS.ProcessEnv = process.env): unknown {
   if ("plain" in env.body) return env.body.plain;
   if ("sealed" in env.body) {
     try {
@@ -47,7 +47,15 @@ export function decodeBody(keys: Keys, env: Envelope): unknown {
       return { sealed: "(cannot open)" };
     }
   }
-  return { group: env.body.group, ct: "(encrypted)" };
+  const key = loadSpaceKey(env.body.group, envVars);
+  if (key) {
+    try {
+      return decryptFromSpace(key, env.body);
+    } catch {
+      return { group: env.body.group, ct: "(cannot decrypt: key epoch mismatch)" };
+    }
+  }
+  return { group: env.body.group, ct: "(encrypted, no key for this space)" };
 }
 
 export async function join(io: Io): Promise<string> {
@@ -107,7 +115,7 @@ export async function listen(io: Io, opts: ListenOpts = {}): Promise<number> {
         if (opts.once) ws.close();
         return;
       }
-      const decoded: Record<string, unknown> = { seq: m.seq, from: m.envelope.from, kind: m.envelope.kind, priority: m.envelope.priority, ts: m.envelope.ts, reply_to: m.envelope.reply_to, body: decodeBody(keys, m.envelope) };
+      const decoded: Record<string, unknown> = { seq: m.seq, from: m.envelope.from, kind: m.envelope.kind, priority: m.envelope.priority, ts: m.envelope.ts, reply_to: m.envelope.reply_to, body: decodeBody(keys, m.envelope, io.env) };
       if (opts.exec) {
         const task = (opts.withContext ? contextLines(io, keys, opts.withContext, { max: opts.contextLines ?? 50 }).catch(() => [] as string[]) : Promise.resolve([] as string[]))
           .then((ctx) => {
@@ -123,7 +131,8 @@ export async function listen(io: Io, opts: ListenOpts = {}): Promise<number> {
       } else {
         const body = decoded.body;
         const text = typeof body === "object" && body && "text" in (body as Record<string, unknown>) ? String((body as { text: unknown }).text) : JSON.stringify(body);
-        io.out(`[${new Date(m.envelope.ts).toISOString().slice(11, 19)}] ${m.envelope.from} ${m.envelope.priority === "urgent" ? "!! " : ""}${text}`);
+        const tag = m.envelope.kind === "topic" && "group" in m.envelope.body ? ` #${loadSpaceKey(m.envelope.body.group, io.env)?.name ?? m.envelope.body.group}` : "";
+        io.out(`[${new Date(m.envelope.ts).toISOString().slice(11, 19)}] ${m.envelope.from}${tag} ${m.envelope.priority === "urgent" ? "!! " : ""}${text}`);
       }
       if (opts.once) ws.close();
     };
@@ -213,4 +222,82 @@ export async function context(io: Io, spaceRef: string, opts: ContextOpts = {}):
   const text = [`# ${key.name} (agentbus space ${key.space_id}), ${lines.length} recent posts, oldest first`, ...lines].join("\n");
   io.out(text);
   return text;
+}
+
+
+// Topic and queue
+
+export async function pub(io: Io, spaceRef: string, text: string): Promise<{ id: string; delivered: number }> {
+  const keys = requireKeys(io);
+  const key = requireSpace(io, spaceRef);
+  const r = await client(io, keys).publish(key, { text });
+  io.out(`published to ${key.name}: delivered to ${r.delivered} member inbox${r.delivered === 1 ? "" : "es"}`);
+  return r;
+}
+
+export async function push(io: Io, spaceRef: string, payloadJson: string): Promise<{ id: string }> {
+  const keys = requireKeys(io);
+  const key = requireSpace(io, spaceRef);
+  let payload: unknown;
+  try {
+    payload = JSON.parse(payloadJson);
+  } catch {
+    payload = { text: payloadJson };
+  }
+  const r = await client(io, keys).push(key.space_id, payload);
+  io.out(`queued ${r.id} in ${key.name}`);
+  return r;
+}
+
+export type WorkOpts = { exec: string; timeoutS?: number; once?: boolean; idleExitS?: number; poll?: (ms: number) => Promise<void> };
+
+/**
+ * Lease loop: take an item, run CMD with the payload on stdin, ack on exit 0, nack otherwise.
+ * Polls every 2 s when the queue is empty; exits after idleExitS seconds idle (default: never) or after one item with once.
+ */
+export async function work(io: Io, spaceRef: string, opts: WorkOpts): Promise<{ done: number; failed: number }> {
+  const keys = requireKeys(io);
+  const key = requireSpace(io, spaceRef);
+  const c = client(io, keys);
+  const sleep = opts.poll ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  let done = 0;
+  let failed = 0;
+  let idleSince = Date.now();
+  for (;;) {
+    const item = await c.lease(key.space_id, opts.timeoutS ?? 60);
+    if (!item) {
+      if (opts.once || (opts.idleExitS !== undefined && Date.now() - idleSince > opts.idleExitS * 1000)) break;
+      await sleep(2000);
+      continue;
+    }
+    idleSince = Date.now();
+    const code = await io.exec(opts.exec, JSON.stringify(item.payload), { AGENTBUS_ITEM: item.id, AGENTBUS_ATTEMPT: String(item.attempts), AGENTBUS_SPACE: key.space_id });
+    if (code === 0) {
+      await c.ack(key.space_id, item.id);
+      done++;
+      io.err(`done ${item.id}`);
+    } else {
+      await c.nack(key.space_id, item.id);
+      failed++;
+      io.err(`nack ${item.id} (exit ${code}, attempt ${item.attempts})`);
+    }
+    if (opts.once) break;
+  }
+  return { done, failed };
+}
+
+export async function queue(io: Io, spaceRef: string, sub: "stats" | "dead" = "stats"): Promise<unknown> {
+  const keys = requireKeys(io);
+  const key = requireSpace(io, spaceRef);
+  const c = client(io, keys);
+  const r = sub === "dead" ? await c.dead(key.space_id) : await c.queueStats(key.space_id);
+  io.out(JSON.stringify(r, null, 2));
+  return r;
+}
+
+export async function mute(io: Io, spaceRef: string, enabled: boolean): Promise<void> {
+  const keys = requireKeys(io);
+  const key = requireSpace(io, spaceRef);
+  await client(io, keys).setSubscription(key.space_id, enabled);
+  io.out(`${key.name} topic ${enabled ? "unmuted" : "muted"}`);
 }

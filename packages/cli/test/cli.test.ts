@@ -2,8 +2,9 @@ import { mkdtempSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join as pjoin } from "node:path";
 import { describe, expect, it } from "vitest";
-import { address, build, decodeKeys, generate, seal, toB64, verifyEnvelope, type Envelope } from "@agentbus/sdk";
-import { context, join, listen, post, read, send, spacesCreate, spacesInvite, spacesList, whoami, type Io } from "../src/commands";
+import { address, build, buildPost, decodeKeys, generate, newSpaceKey, seal, toB64, verifyEnvelope, type Envelope } from "@agentbus/sdk";
+import { saveSpaceKey } from "../src/config";
+import { context, join, listen, post, pub, push, read, send, spacesCreate, spacesInvite, spacesList, whoami, work, type Io } from "../src/commands";
 import { parse } from "../src/index";
 
 function fakeIo(handler: (url: URL, init: RequestInit) => Response | Promise<Response>, wsFrames: string[] = []) {
@@ -168,5 +169,59 @@ describe("cli spaces", () => {
     const ctx = await context(ownerIo, "caspian", { max: 10 });
     expect(ctx.split("\n")[0]).toContain("# caspian");
     expect(spacesList(ownerIo)).toHaveLength(1);
+  });
+});
+
+
+describe("cli topic and queue", () => {
+  it("pub encrypts and reports fan-out; push, work leases and acks on exit 0, nacks on failure", async () => {
+    const items: { id: string; payload: unknown; state: string; attempts: number }[] = [];
+    const published: Envelope[] = [];
+    const handler = async (url: URL, init: RequestInit) => {
+      if (url.pathname === "/v1/agents") return Response.json({ address: "x" }, { status: 201 });
+      if (url.pathname === "/v1/spaces") return Response.json({ id: "01ARZ3NDEKTSV4RRFFQ69G5FAV", name: "t", epoch: 1 }, { status: 201 });
+      if (url.pathname.endsWith("/topic")) { const e = JSON.parse(String(init.body)); published.push(e); return Response.json({ id: e.id, delivered: 3 }, { status: 202 }); }
+      if (url.pathname.endsWith("/queue") && init.method === "POST") { const b = JSON.parse(String(init.body)); const id = "item" + (items.length + 1); items.push({ id, payload: b.payload, state: "ready", attempts: 0 }); return Response.json({ id }, { status: 201 }); }
+      if (url.pathname.endsWith("/queue/lease")) { const it = items.find((i) => i.state === "ready"); if (!it) return new Response(null, { status: 204 }); it.state = "leased"; it.attempts++; return Response.json({ item: { id: it.id, payload: it.payload, attempts: it.attempts, lease_until: Date.now() + 60000, created: 0 } }); }
+      if (url.pathname.endsWith("/ack")) { const it = items.find((i) => url.pathname.includes(i.id))!; it.state = "done"; return Response.json({ ok: true }); }
+      if (url.pathname.endsWith("/nack")) { const it = items.find((i) => url.pathname.includes(i.id))!; it.state = it.attempts >= 5 ? "dead" : "ready"; return Response.json({ ok: true }); }
+      return Response.json({ error: "unexpected " + url.pathname + " " + init.method }, { status: 500 });
+    };
+    const { io } = fakeIo(handler);
+    await join(io);
+    const key = await spacesCreate(io, "t");
+    const r = await pub(io, "t", "deploy done");
+    expect(r.delivered).toBe(3);
+    expect(published[0].kind).toBe("topic");
+    expect(JSON.stringify(published[0].body)).not.toContain("deploy");
+    await push(io, "t", '{"job":"ok"}');
+    await push(io, "t", "plain text job");
+    expect(items[1].payload).toEqual({ text: "plain text job" });
+    let calls = 0;
+    io.exec = async (cmd, input) => { calls++; return JSON.parse(input).job === "ok" ? 0 : 1; };
+    const res = await work(io, "t", { exec: "handler", idleExitS: 0, poll: async () => {} });
+    // the failing item is retried until the hub dead-letters it after 5 attempts
+    expect(calls).toBe(6);
+    expect(res).toEqual({ done: 1, failed: 5 });
+    expect(items[0].state).toBe("done");
+    expect(items[1].state).toBe("dead");
+    expect(key.space_id).toBe("01ARZ3NDEKTSV4RRFFQ69G5FAV");
+  });
+});
+
+
+describe("cli topic decryption in listen", () => {
+  it("decrypts a topic frame with the stored space key and tags it with the space name", async () => {
+    const sender = generate();
+    const { io } = fakeIo(async () => Response.json({ address: "x" }, { status: 201 }));
+    await join(io);
+    const key = newSpaceKey("01ARZ3NDEKTSV4RRFFQ69G5FAV", "ops");
+    saveSpaceKey(key, io.env);
+    const frame = JSON.stringify({ seq: 1, envelope: buildPost(sender, key, { text: "deploy finished" }, "topic") });
+    const l = fakeIo(async () => new Response(), [frame]);
+    l.io.env = io.env;
+    await listen(l.io, { since: 0 });
+    expect(l.out[0]).toContain("#ops");
+    expect(l.out[0]).toContain("deploy finished");
   });
 });

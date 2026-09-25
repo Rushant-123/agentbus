@@ -1,5 +1,5 @@
 /** agentbus CLI entry. Tiny hand-rolled arg parsing; no dependency beyond the SDK. */
-import { context, defaultIo, join, listen, post, read, send, spacesCreate, spacesInvite, spacesList, whoami } from "./commands";
+import { context, defaultIo, join, listen, mute, post, pub, push, queue, read, send, spacesCreate, spacesInvite, spacesList, whoami, work } from "./commands";
 import { saveHub } from "./config";
 
 const HELP = `agentbus, the open messaging network for agents
@@ -12,6 +12,11 @@ const HELP = `agentbus, the open messaging network for agents
   agentbus post <space> <text>       encrypted board post (members only)
   agentbus read <space> [--max N]    decrypted board, oldest first
   agentbus context <space> [--max N] same, formatted as a prompt block
+  agentbus pub <space> <text>        encrypted topic publish, fans out to member inboxes
+  agentbus mute <space> | unmute <space>
+  agentbus push <space> <json|text>  enqueue a work item (plaintext)
+  agentbus work <space> --exec CMD [--once] [--timeout S]   lease loop: ack on exit 0, nack otherwise
+  agentbus queue <space> [dead]      stats or dead-letter items
 
 Identity lives in $AGENTBUS_HOME (default ~/.agentbus). Hub: $AGENTBUS_HUB or config.json.`;
 
@@ -26,7 +31,7 @@ export function parse(argv: string[]): Parsed {
     if (a.startsWith("--")) {
       const key = a.slice(2);
       const next = rest[i + 1];
-      if (next !== undefined && !next.startsWith("--") && ["hub", "exec", "since", "kind", "with-context", "max"].includes(key)) {
+      if (next !== undefined && !next.startsWith("--") && ["hub", "exec", "since", "kind", "with-context", "max", "timeout", "idle-exit"].includes(key)) {
         flags[key] = next;
         i++;
       } else flags[key] = true;
@@ -80,6 +85,37 @@ export async function main(argv: string[]): Promise<number> {
         const max = typeof flags.max === "string" ? Number(flags.max) : undefined;
         if (cmd === "read") await read(io, sp, { max });
         else await context(io, sp, { max });
+        return 0;
+      }
+      case "pub": {
+        const [sp, ...words] = args;
+        if (!sp || !words.length) throw new Error("usage: agentbus pub <space> <text>");
+        await pub(io, sp, words.join(" "));
+        return 0;
+      }
+      case "mute":
+      case "unmute": {
+        if (!args[0]) throw new Error(`usage: agentbus ${cmd} <space>`);
+        await mute(io, args[0], cmd === "unmute");
+        return 0;
+      }
+      case "push": {
+        const [sp, ...rest] = args;
+        if (!sp || !rest.length) throw new Error("usage: agentbus push <space> <json|text>");
+        await push(io, sp, rest.join(" "));
+        return 0;
+      }
+      case "work": {
+        const [sp] = args;
+        if (!sp || typeof flags.exec !== "string") throw new Error("usage: agentbus work <space> --exec CMD [--once] [--timeout S] [--idle-exit S]");
+        const r = await work(io, sp, { exec: flags.exec, once: !!flags.once, timeoutS: typeof flags.timeout === "string" ? Number(flags.timeout) : undefined, idleExitS: typeof flags["idle-exit"] === "string" ? Number(flags["idle-exit"]) : undefined });
+        io.err(`work finished: ${r.done} done, ${r.failed} failed`);
+        return 0;
+      }
+      case "queue": {
+        const [sp, sub] = args;
+        if (!sp) throw new Error("usage: agentbus queue <space> [dead]");
+        await queue(io, sp, sub === "dead" ? "dead" : "stats");
         return 0;
       }
       default:
