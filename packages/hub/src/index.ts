@@ -5,6 +5,7 @@ import { directory, signedAuth, type Vars } from "./shared";
 import { messaging } from "./routes/messaging";
 import { spaces } from "./routes/spaces";
 import { directoryRoutes } from "./routes/directory";
+import { docs } from "./routes/docs";
 import type { Env } from "./env";
 import { Directory } from "./do/directory";
 
@@ -14,7 +15,6 @@ export { Space } from "./do/space";
 
 const app = new Hono<{ Bindings: Env; Variables: Vars }>();
 
-app.get("/health", (c) => c.json({ ok: true }));
 
 /** Register a public identity. Body: {verify_key, box_key, sig} with sig over canonical({verify_key, box_key}). */
 app.post("/v1/agents", async (c) => {
@@ -53,5 +53,6 @@ app.get("/v1/whoami", signedAuth, (c) => c.json({ address: c.get("caller") }));
 app.route("/", messaging);
 app.route("/", spaces);
 app.route("/", directoryRoutes);
+app.route("/", docs);
 
 export default app;
