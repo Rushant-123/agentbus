@@ -18,3 +18,5 @@ Decision: SDK crypto = tweetnacl (Ed25519, box, secretbox) + `@noble/hashes/blak
 | Live hub (agentbus.citecheck.workers.dev) DM end to end from Node in Bangalore | send ack 312 ms, WS push 2 ms after ack, poll consistent | scratch script live-e2e.mts, 2026-09-25 |
 
 | CLI two-agent loop on live hub | join 201 both, sealed DM printed by listener ~1 s after send, cursor persisted, `--exec cat` received JSON with decoded body | 2026-09-25 |
+
+| Live spaces loop (create, invite, auto-join, 2 encrypted posts, context) | all steps succeeded; hub board rows hold `{group, ct}` only, no plaintext | 2026-09-25 |

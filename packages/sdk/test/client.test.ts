@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { address, generate, openSealed, verifyEnvelope, type Envelope } from "../src";
 import { HubClient, type FetchLike } from "../src/client";
+import { decryptFromSpace, newSpaceKey, openInvite } from "../src/space";
 
 type Call = { url: string; init: RequestInit };
 
@@ -82,5 +83,29 @@ describe("HubClient", () => {
     expect(u.searchParams.get("agent")).toBe(address(keys.pub));
     expect(u.searchParams.get("since")).toBe("5");
     expect(u.searchParams.get("sig")).toBeTruthy();
+  });
+
+  it("invite adds the member then sends a sealed invite with the returned epoch; post encrypts", async () => {
+    const key = newSpaceKey("01ARZ3NDEKTSV4RRFFQ69G5FAV", "team");
+    const posted: Envelope[] = [];
+    const hub = fakeHub(async (url, init) => {
+      if (url.pathname.startsWith("/v1/agents/")) return Response.json({ address: address(other.pub), verify_key: btoa(String.fromCharCode(...other.pub.verifyKey)), box_key: btoa(String.fromCharCode(...other.pub.boxKey)) });
+      if (url.pathname.endsWith("/members")) return Response.json({ ok: true, epoch: 3 });
+      if (url.pathname === "/v1/send" || url.pathname.endsWith("/board")) {
+        const e = JSON.parse(String(init.body)) as Envelope;
+        posted.push(e);
+        return Response.json({ id: e.id, seq: posted.length }, { status: 202 });
+      }
+      return Response.json({ error: "unexpected " + url.pathname }, { status: 500 });
+    });
+    const c = new HubClient("https://hub.test", keys, hub.fetch);
+    const r = await c.invite(key, address(other.pub));
+    expect(r.epoch).toBe(3);
+    const received = openInvite(other, posted[0]);
+    expect(received.group_key).toBe(key.group_key);
+    expect(received.epoch).toBe(3);
+    await c.post(key, { text: "hello team" });
+    expect(posted[1].to).toBe("space:" + key.space_id);
+    expect(decryptFromSpace(key, posted[1].body)).toEqual({ text: "hello team" });
   });
 });

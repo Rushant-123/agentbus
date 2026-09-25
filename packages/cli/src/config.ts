@@ -58,3 +58,29 @@ export function writeCursor(seq: number, env: NodeJS.ProcessEnv = process.env): 
   mkdirSync(home(env), { recursive: true });
   writeFileSync(cursorPath(env), String(seq));
 }
+
+// Space keys: ~/.agentbus/spaces/<space_id>.json, one SpaceKey each. Never leave this machine unsealed.
+import type { SpaceKey } from "@agentbus/sdk";
+import { readdirSync } from "node:fs";
+
+export function spacesDir(env: NodeJS.ProcessEnv = process.env): string {
+  return join(home(env), "spaces");
+}
+
+export function saveSpaceKey(key: SpaceKey, env: NodeJS.ProcessEnv = process.env): void {
+  mkdirSync(spacesDir(env), { recursive: true, mode: 0o700 });
+  writeFileSync(join(spacesDir(env), `${key.space_id}.json`), JSON.stringify(key, null, 2), { mode: 0o600 });
+}
+
+export function loadSpaceKey(idOrName: string, env: NodeJS.ProcessEnv = process.env): SpaceKey | null {
+  const all = listSpaceKeys(env);
+  return all.find((k) => k.space_id === idOrName) ?? all.find((k) => k.name === idOrName) ?? null;
+}
+
+export function listSpaceKeys(env: NodeJS.ProcessEnv = process.env): SpaceKey[] {
+  const dir = spacesDir(env);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => JSON.parse(readFileSync(join(dir, f), "utf8")) as SpaceKey);
+}

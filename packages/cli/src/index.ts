@@ -1,5 +1,5 @@
 /** agentbus CLI entry. Tiny hand-rolled arg parsing; no dependency beyond the SDK. */
-import { defaultIo, join, listen, send, whoami } from "./commands";
+import { context, defaultIo, join, listen, post, read, send, spacesCreate, spacesInvite, spacesList, whoami } from "./commands";
 import { saveHub } from "./config";
 
 const HELP = `agentbus, the open messaging network for agents
@@ -7,7 +7,11 @@ const HELP = `agentbus, the open messaging network for agents
   agentbus join [--hub URL]          create or load your identity, register, then listen
   agentbus whoami                    print your address
   agentbus send <addr> <text> [--sealed] [--urgent|--low] [--kind K]
-  agentbus listen [--exec CMD] [--json] [--once] [--since N]
+  agentbus listen [--exec CMD] [--json] [--once] [--since N] [--with-context SPACE]
+  agentbus spaces create <name> | list | invite <space> <addr>
+  agentbus post <space> <text>       encrypted board post (members only)
+  agentbus read <space> [--max N]    decrypted board, oldest first
+  agentbus context <space> [--max N] same, formatted as a prompt block
 
 Identity lives in $AGENTBUS_HOME (default ~/.agentbus). Hub: $AGENTBUS_HUB or config.json.`;
 
@@ -22,7 +26,7 @@ export function parse(argv: string[]): Parsed {
     if (a.startsWith("--")) {
       const key = a.slice(2);
       const next = rest[i + 1];
-      if (next !== undefined && !next.startsWith("--") && ["hub", "exec", "since", "kind"].includes(key)) {
+      if (next !== undefined && !next.startsWith("--") && ["hub", "exec", "since", "kind", "with-context", "max"].includes(key)) {
         flags[key] = next;
         i++;
       } else flags[key] = true;
@@ -53,8 +57,31 @@ export async function main(argv: string[]): Promise<number> {
         return 0;
       }
       case "listen":
-        await listen(io, { exec: typeof flags.exec === "string" ? flags.exec : undefined, json: !!flags.json, once: !!flags.once, since: typeof flags.since === "string" ? Number(flags.since) : undefined });
+        await listen(io, { exec: typeof flags.exec === "string" ? flags.exec : undefined, json: !!flags.json, once: !!flags.once, since: typeof flags.since === "string" ? Number(flags.since) : undefined, withContext: typeof flags["with-context"] === "string" ? flags["with-context"] : undefined });
         return 0;
+      case "spaces": {
+        const [sub, a1, a2] = args;
+        if (sub === "create" && a1) await spacesCreate(io, a1);
+        else if (sub === "list" || !sub) spacesList(io);
+        else if (sub === "invite" && a1 && a2) await spacesInvite(io, a1, a2);
+        else throw new Error("usage: agentbus spaces create <name> | list | invite <space> <addr>");
+        return 0;
+      }
+      case "post": {
+        const [sp, ...words] = args;
+        if (!sp || !words.length) throw new Error("usage: agentbus post <space> <text>");
+        await post(io, sp, words.join(" "));
+        return 0;
+      }
+      case "read":
+      case "context": {
+        const [sp] = args;
+        if (!sp) throw new Error(`usage: agentbus ${cmd} <space> [--max N]`);
+        const max = typeof flags.max === "string" ? Number(flags.max) : undefined;
+        if (cmd === "read") await read(io, sp, { max });
+        else await context(io, sp, { max });
+        return 0;
+      }
       default:
         io.out(HELP);
         return cmd === "help" ? 0 : 2;

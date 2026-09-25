@@ -2,11 +2,14 @@
 import { address, pubFromJson, pubToJson, seal, sign, toB64, type Keys, type PublicIdentity } from "./crypto";
 import { build, canonical, type Body, type Envelope, type Priority } from "./envelope";
 import { signedHeaders } from "./auth";
+import { buildPost, makeInvite, type SpaceKey } from "./space";
 
 export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 export type SendOptions = { kind?: string; priority?: Priority; reply_to?: string; sealed?: boolean };
 export type InboxPage = { messages: { seq: number; envelope: Envelope }[]; next: number };
+export type SpaceInfo = { id: string; name: string; owner: string; epoch: number; members: string[]; created: number };
+export type BoardPage = { posts: { seq: number; author: string; epoch: number; envelope: Envelope }[]; next: number };
 
 export class HubError extends Error {
   constructor(public status: number, message: string) {
@@ -75,5 +78,47 @@ export class HubClient {
     const h = signedHeaders(this.keys, "GET", "/v1/inbox/ws");
     const qs = new URLSearchParams({ agent: h["x-agent"], ts: h["x-ts"], sig: h["x-sig"], since: String(since) });
     return `${this.hub.replace(/^http/, "ws")}/v1/inbox/ws?${qs}`;
+  }
+
+  private async signedJson<T>(method: string, path: string, body?: unknown): Promise<T> {
+    const res = await this.fetchImpl(`${this.hub}${path}`, { method, headers: this.signed(method, path.split("?")[0]), body: body === undefined ? undefined : JSON.stringify(body) });
+    return this.json<T>(res);
+  }
+
+  // Spaces
+
+  async createSpace(name: string): Promise<{ id: string; name: string; epoch: number }> {
+    return this.signedJson("POST", "/v1/spaces", { name });
+  }
+
+  async spaceInfo(id: string): Promise<SpaceInfo> {
+    return this.signedJson("GET", `/v1/spaces/${id}`);
+  }
+
+  async addMember(id: string, addr: string): Promise<{ ok: boolean; epoch: number }> {
+    return this.signedJson("POST", `/v1/spaces/${id}/members`, { address: addr });
+  }
+
+  async removeMember(id: string, addr: string): Promise<{ ok: boolean; epoch: number }> {
+    return this.signedJson("DELETE", `/v1/spaces/${id}/members/${addr}`);
+  }
+
+  /** Add the member on the hub, then hand them the space key over a sealed DM. */
+  async invite(key: SpaceKey, addr: string): Promise<{ epoch: number; inviteId: string }> {
+    const { pub } = await this.lookup(addr);
+    const r = await this.addMember(key.space_id, addr);
+    const inv = makeInvite(this.keys, addr, pub, { ...key, epoch: r.epoch });
+    const sent = await this.sendEnvelope(inv);
+    return { epoch: r.epoch, inviteId: sent.id };
+  }
+
+  async post(key: SpaceKey, payload: unknown, kind = "post"): Promise<{ id: string; seq: number }> {
+    const env = buildPost(this.keys, key, payload, kind);
+    const res = await this.fetchImpl(`${this.hub}/v1/spaces/${key.space_id}/board`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(env) });
+    return this.json(res);
+  }
+
+  async board(id: string, since = 0, limit = 100): Promise<BoardPage> {
+    return this.signedJson("GET", `/v1/spaces/${id}/board?since=${since}&limit=${limit}`);
   }
 }

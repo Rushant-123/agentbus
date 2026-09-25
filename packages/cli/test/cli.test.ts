@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join as pjoin } from "node:path";
 import { describe, expect, it } from "vitest";
 import { address, build, decodeKeys, generate, seal, toB64, verifyEnvelope, type Envelope } from "@agentbus/sdk";
-import { join, listen, send, whoami, type Io } from "../src/commands";
+import { context, join, listen, post, read, send, spacesCreate, spacesInvite, spacesList, whoami, type Io } from "../src/commands";
 import { parse } from "../src/index";
 
 function fakeIo(handler: (url: URL, init: RequestInit) => Response | Promise<Response>, wsFrames: string[] = []) {
@@ -115,5 +115,58 @@ describe("cli", () => {
     expect(JSON.parse(execs3[0].input).body).toEqual({ text: "one" });
     expect(execs3[1].env.AGENTBUS_FROM).toBe(address(sender.pub));
     expect(out.length + execs.length).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("cli spaces", () => {
+  it("create stores a key; invite delivers it sealed; a listener auto-joins; post and context round trip through a fake hub", async () => {
+    const posts: Envelope[] = [];
+    const sent: Envelope[] = [];
+    let members = 0;
+    const hubHandler = (pubOf: () => { verify_key: string; box_key: string; address: string }) => async (url: URL, init: RequestInit) => {
+      if (url.pathname === "/v1/agents") return Response.json({ address: "x" }, { status: 201 });
+      if (url.pathname.startsWith("/v1/agents/")) return Response.json(pubOf());
+      if (url.pathname === "/v1/spaces") return Response.json({ id: "01ARZ3NDEKTSV4RRFFQ69G5FAV", name: "caspian", epoch: 1 }, { status: 201 });
+      if (url.pathname.endsWith("/members")) { members++; return Response.json({ ok: true, epoch: 1 }); }
+      if (url.pathname === "/v1/send") { const e = JSON.parse(String(init.body)); sent.push(e); return Response.json({ id: e.id, seq: sent.length }, { status: 202 }); }
+      if (url.pathname.endsWith("/board") && init.method === "POST") { const e = JSON.parse(String(init.body)); posts.push(e); return Response.json({ id: e.id, seq: posts.length }, { status: 202 }); }
+      if (url.pathname.endsWith("/board")) { const since = Number(url.searchParams.get("since") ?? 0); const page = posts.map((e, i) => ({ seq: i + 1, author: e.from, epoch: 1, envelope: e })).filter((p) => p.seq > since); return Response.json({ posts: page, next: page.length ? page[page.length - 1].seq : since }); }
+      return Response.json({ error: "unexpected " + url.pathname }, { status: 500 });
+    };
+    // owner
+    const owner = fakeIo(async () => new Response());
+    await join({ ...owner.io, fetch: async (u, i) => hubHandler(() => ({ verify_key: "", box_key: "", address: "" }))(new URL(String(u)), i ?? {}) });
+    // member
+    const member = fakeIo(async () => new Response());
+    await join({ ...member.io, fetch: async () => Response.json({ address: "x" }, { status: 201 }) });
+    const memberKeys = decodeKeys(readFileSync(pjoin(member.io.env.AGENTBUS_HOME!, "key.json"), "utf8"));
+    const memberPub = { verify_key: toB64(memberKeys.pub.verifyKey), box_key: toB64(memberKeys.pub.boxKey), address: address(memberKeys.pub) };
+    const ownerIo: Io = { ...owner.io, fetch: async (u, i) => hubHandler(() => memberPub)(new URL(String(u)), i ?? {}) };
+
+    const key = await spacesCreate(ownerIo, "caspian");
+    expect(existsSync(pjoin(owner.io.env.AGENTBUS_HOME!, "spaces", key.space_id + ".json"))).toBe(true);
+    await spacesInvite(ownerIo, "caspian", address(memberKeys.pub));
+    expect(members).toBe(1);
+    expect(sent[0].kind).toBe("invite");
+
+    // member's listener receives the invite frame and stores the key
+    const frames = [JSON.stringify({ seq: 1, envelope: sent[0] })];
+    const listener = fakeIo(async () => new Response(), frames);
+    listener.io.env = member.io.env;
+    await listen(listener.io, { once: true });
+    expect(listener.err.some((l) => l.startsWith("joined space caspian"))).toBe(true);
+    expect(existsSync(pjoin(member.io.env.AGENTBUS_HOME!, "spaces", key.space_id + ".json"))).toBe(true);
+
+    // member posts encrypted; owner reads and gets context
+    const memberIo: Io = { ...member.io, fetch: async (u, i) => hubHandler(() => memberPub)(new URL(String(u)), i ?? {}) };
+    await post(memberIo, "caspian", "standup at 9");
+    expect(JSON.stringify(posts[0])).not.toContain("standup");
+    const lines = await read(ownerIo, "caspian");
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("standup at 9");
+    expect(lines[0]).toContain(address(memberKeys.pub));
+    const ctx = await context(ownerIo, "caspian", { max: 10 });
+    expect(ctx.split("\n")[0]).toContain("# caspian");
+    expect(spacesList(ownerIo)).toHaveLength(1);
   });
 });
