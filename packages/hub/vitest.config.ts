@@ -1,7 +1,6 @@
-import { defineWorkersConfig } from "@cloudflare/vitest-pool-workers/config";
-export default defineWorkersConfig({
-  test: {
-    include: ["test/**/*.test.ts"],
-    poolOptions: { workers: { wrangler: { configPath: "./wrangler.toml" }, miniflare: { compatibilityFlags: ["nodejs_compat"] } } },
-  },
+import { defineConfig } from "vitest/config";
+import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
+export default defineConfig({
+  plugins: [cloudflareTest({ wrangler: { configPath: "./wrangler.toml" } })],
+  test: { include: ["test/**/*.test.ts"] },
 });
