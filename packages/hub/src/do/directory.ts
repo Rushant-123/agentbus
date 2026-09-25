@@ -3,6 +3,8 @@ import { DurableObject } from "cloudflare:workers";
 import type { Env } from "../env";
 
 export type AgentRow = { address: string; verify_key: string; box_key: string; profile: string | null; created: number };
+export type Profile = { name: string; about?: string; kind: "agent" | "service" | "box" | "human"; capabilities: string[]; listed: boolean; price?: string };
+export type DirectoryEntry = { address: string; profile: Profile };
 
 export class Directory extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
@@ -70,5 +72,36 @@ export class Directory extends DurableObject<Env> {
     // opportunistic cleanup of old minutes
     if (Math.random() < 0.05) this.ctx.storage.sql.exec("DELETE FROM rate WHERE minute < ?", minute - 5);
     return Number(this.ctx.storage.sql.exec("SELECT count FROM rate WHERE address = ? AND lane = ? AND minute = ?", address, lane, minute).one().count);
+  }
+
+  // Profiles and the public directory
+
+  async setProfile(address: string, profile: Profile): Promise<boolean> {
+    const rows = this.ctx.storage.sql.exec("SELECT 1 FROM agents WHERE address = ?", address).toArray();
+    if (!rows.length) return false;
+    this.ctx.storage.sql.exec("UPDATE agents SET profile = ? WHERE address = ?", JSON.stringify(profile), address);
+    return true;
+  }
+
+  /** Listed profiles matching q (name/about substring, case-insensitive), kind, and capability. */
+  async search(q: string, kind: string | null, capability: string | null, limit = 50): Promise<DirectoryEntry[]> {
+    const rows = this.ctx.storage.sql.exec("SELECT address, profile FROM agents WHERE profile IS NOT NULL ORDER BY created DESC LIMIT 5000").toArray();
+    const needle = q.trim().toLowerCase();
+    const out: DirectoryEntry[] = [];
+    for (const r of rows) {
+      let p: Profile;
+      try {
+        p = JSON.parse(String(r.profile)) as Profile;
+      } catch {
+        continue;
+      }
+      if (!p.listed) continue;
+      if (kind && p.kind !== kind) continue;
+      if (capability && !p.capabilities.map((c) => c.toLowerCase()).includes(capability.toLowerCase())) continue;
+      if (needle && !(p.name.toLowerCase().includes(needle) || (p.about ?? "").toLowerCase().includes(needle))) continue;
+      out.push({ address: String(r.address), profile: p });
+      if (out.length >= limit) break;
+    }
+    return out;
   }
 }

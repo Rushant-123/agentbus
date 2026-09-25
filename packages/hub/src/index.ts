@@ -4,6 +4,7 @@ import { address, canonical, isAddress, pubFromJson, verify, fromB64 } from "@ag
 import { directory, signedAuth, type Vars } from "./shared";
 import { messaging } from "./routes/messaging";
 import { spaces } from "./routes/spaces";
+import { directoryRoutes } from "./routes/directory";
 import type { Env } from "./env";
 import { Directory } from "./do/directory";
 
@@ -51,5 +52,6 @@ app.get("/v1/agents/:addr", async (c) => {
 app.get("/v1/whoami", signedAuth, (c) => c.json({ address: c.get("caller") }));
 app.route("/", messaging);
 app.route("/", spaces);
+app.route("/", directoryRoutes);
 
 export default app;
