@@ -1,0 +1,15 @@
+{
+ "verify_key": "dMS320MFEUu3QAXqqb+JdOtmk3kPM/TwIAOPA6/ZYd8=",
+ "box_key": "ankiyE+au1rQUUc5XTEeBbSmDUVGTZSOJC/tPTBxLg4=",
+ "fingerprint": "cd974118fc68526d40e0a3c2617560bb",
+ "sign_seed": "rX1NnLEi1Or+ZCvsvHkitVMO5KEcjcfZdRFtVU8O7XU=",
+ "sealed_hello": "fOHIZhEu+9v+Kwt9gWGTXfklRrZMRmDYJQi/v4RQIQ1QWkT+IOvSWerLYara91XFYWjzAkI=",
+ "group_key": "hFqU6bvrwrWqGEG5+7I/hNu5iY+yv0aYTgPoPXJXjH8=",
+ "group_ct_team": "1laRgKEg3YREgHb5+uuW38gGMcbM0RJp75Tcx3Zq1rdgfAbxLQ/kQf3Lxnw=",
+ "sig_of_envelope_bytes": "7wlOv1c8SoRxN+oDcViul/ch60/tB+rEBrzNqdOnM5AVKEXgb33ie4VPhHtQ6sIUkTEjJSFY5Yze+l5IfMbTCw==",
+ "msg": "envelope-bytes",
+ "private_raw": {
+  "_signing": "rX1NnLEi1Or+ZCvsvHkitVMO5KEcjcfZdRFtVU8O7XU=",
+  "_box": "JQlO69TTGcrXeEmB6Vk47sfQnUAcQpq6I4uJML8FzQk="
+ }
+}
