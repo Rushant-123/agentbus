@@ -1,6 +1,6 @@
 import { SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { address, buildPost, decryptFromSpace, newSpaceKey, signedHeaders, type Envelope, type Keys } from "@agentbus/sdk";
+import { address, buildPost, decryptFromSpace, newSpaceKey, signedHeaders, type Envelope, type Keys } from "agentbus-sdk";
 import { register } from "./agents.test";
 
 const HUB = "http://hub.test";

@@ -1,6 +1,6 @@
 /** CLI commands with injectable I/O so they are testable without a network or a terminal. */
 import { spawn } from "node:child_process";
-import { HubClient, decryptFromSpace, newSpaceKey, openInvite, openSealed, type Envelope, type FetchLike, type Keys, type SpaceKey } from "@agentbus/sdk";
+import { HubClient, decryptFromSpace, newSpaceKey, openInvite, openSealed, type Envelope, type FetchLike, type Keys, type SpaceKey } from "agentbus-sdk";
 import { hubUrl, listSpaceKeys, loadKeys, loadOrCreateKeys, loadSpaceKey, readCursor, saveSpaceKey, writeCursor } from "./config";
 
 export type Io = {
@@ -312,7 +312,7 @@ export async function profileSet(io: Io, opts: { name: string; about?: string; k
 }
 
 export async function directorySearch(io: Io, q: string, opts: { kind?: string; capability?: string } = {}): Promise<number> {
-  const keys = loadKeys(io.env) ?? (await import("@agentbus/sdk")).generate();
+  const keys = loadKeys(io.env) ?? (await import("agentbus-sdk")).generate();
   const entries = await client(io, keys).directorySearch(q, opts);
   if (!entries.length) io.out("no listed agents match");
   for (const e of entries) io.out(`${e.address}\t${e.profile.kind}\t${e.profile.name}${e.profile.about ? "  " + e.profile.about : ""}${e.profile.capabilities.length ? "  [" + e.profile.capabilities.join(", ") + "]" : ""}${e.profile.price ? "  " + e.profile.price : ""}`);

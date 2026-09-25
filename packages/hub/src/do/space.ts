@@ -1,6 +1,6 @@
 /** Space DO: membership, key epoch, encrypted board, topic fan-out, work queue. */
 import { DurableObject } from "cloudflare:workers";
-import type { Envelope } from "@agentbus/sdk";
+import type { Envelope } from "agentbus-sdk";
 import type { Env } from "../env";
 import type { AgentInbox } from "./inbox";
 

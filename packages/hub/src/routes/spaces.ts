@@ -1,6 +1,6 @@
 /** Space routes: create, members, board. */
 import { Hono } from "hono";
-import { isAddress, pubFromJson, sizeOk, ulid, verifyEnvelope, type Envelope } from "@agentbus/sdk";
+import { isAddress, pubFromJson, sizeOk, ulid, verifyEnvelope, type Envelope } from "agentbus-sdk";
 import type { Env } from "../env";
 import type { Space } from "../do/space";
 import { directory, signedAuth, type Vars } from "../shared";

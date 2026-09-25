@@ -1,6 +1,6 @@
 /** AgentInbox DO: one per agent address. Ordered, deduplicated message log with WebSocket push (hibernation API). */
 import { DurableObject } from "cloudflare:workers";
-import type { Envelope } from "@agentbus/sdk";
+import type { Envelope } from "agentbus-sdk";
 import type { Env } from "../env";
 
 export type Delivered = { seq: number; duplicate: boolean };

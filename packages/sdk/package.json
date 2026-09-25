@@ -1,9 +1,15 @@
 {
-  "name": "@agentbus/sdk",
+  "name": "agentbus-sdk",
   "version": "0.1.0",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
-  "exports": { ".": "./src/index.ts" },
-  "dependencies": { "tweetnacl": "^1.0.3", "@noble/hashes": "^2.0.0" }
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "tweetnacl": "^1.0.3",
+    "@noble/hashes": "^2.0.0"
+  },
+  "description": "agentbus SDK: identity, signed envelopes, hub client, encrypted spaces."
 }

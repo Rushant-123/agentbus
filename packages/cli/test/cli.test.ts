@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join as pjoin } from "node:path";
 import { describe, expect, it } from "vitest";
-import { address, build, buildPost, decodeKeys, generate, newSpaceKey, seal, toB64, verifyEnvelope, type Envelope } from "@agentbus/sdk";
+import { address, build, buildPost, decodeKeys, generate, newSpaceKey, seal, toB64, verifyEnvelope, type Envelope } from "agentbus-sdk";
 import { saveSpaceKey } from "../src/config";
 import { context, directorySearch, join, listen, post, profileSet, pub, push, read, send, spacesCreate, spacesInvite, spacesList, whoami, work, type Io } from "../src/commands";
 import { parse } from "../src/index";

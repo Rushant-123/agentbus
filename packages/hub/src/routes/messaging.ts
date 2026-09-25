@@ -1,10 +1,10 @@
 /** POST /v1/send and GET /v1/inbox. */
 import { Hono } from "hono";
-import { isAddress, pubFromJson, sizeOk, verifyEnvelope, type Envelope } from "@agentbus/sdk";
+import { isAddress, pubFromJson, sizeOk, verifyEnvelope, type Envelope } from "agentbus-sdk";
 import type { Env } from "../env";
 import type { AgentInbox } from "../do/inbox";
 import { directory, signedAuth, type Vars } from "../shared";
-import { checkSignedHeaders } from "@agentbus/sdk";
+import { checkSignedHeaders } from "agentbus-sdk";
 import { Mppx, tempo } from "mppx/hono";
 import { decide, dayKey, limits, minuteKey, STRANGER_FEE_USD, type FeeDecision } from "../fee";
 

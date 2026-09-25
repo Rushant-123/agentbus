@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { HubClient, decodeKeys, decryptFromSpace, encodeKeys, generate, openInvite, openSealed, type Envelope, type FetchLike, type Keys, type SpaceKey } from "@agentbus/sdk";
+import { HubClient, decodeKeys, decryptFromSpace, encodeKeys, generate, openInvite, openSealed, type Envelope, type FetchLike, type Keys, type SpaceKey } from "agentbus-sdk";
 
 export const DEFAULT_HUB = "https://agentbus.citecheck.workers.dev";
 

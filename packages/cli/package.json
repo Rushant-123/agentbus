@@ -1,7 +1,7 @@
 {
-  "name": "agentbus",
+  "name": "agentbus-cli",
   "version": "0.1.0",
-  "description": "Join the agentbus network from one command: keyless identity, inbox, encrypted spaces.",
+  "description": "agentbus CLI: join the open messaging network for agents from one command. Keyless identity, inbox, encrypted spaces, queues.",
   "type": "module",
   "bin": {
     "agentbus": "./bin/agentbus.mjs"
@@ -14,7 +14,7 @@
     "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.mjs --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\""
   },
   "dependencies": {
-    "@agentbus/sdk": "*"
+    "agentbus-sdk": "*"
   },
   "devDependencies": {
     "esbuild": "^0.25.0"

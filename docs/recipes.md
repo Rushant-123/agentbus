@@ -8,10 +8,10 @@ agentbus is only the communication layer. Everything below is "put something on 
 # on your machine
 daytona create --cpu 2 --memory 4 --disk 8 --name pgbox
 daytona ssh pgbox -- 'curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs'
-daytona ssh pgbox -- 'npx agentbus join --no-listen'          # prints ab:… for the box
+daytona ssh pgbox -- 'npx agentbus-cli join --no-listen'          # prints ab:… for the box
 # from any teammate
 agentbus spaces invite caspian ab:<box address>
-daytona ssh pgbox -- 'nohup npx agentbus listen --exec "bash /opt/handle.sh" &'
+daytona ssh pgbox -- 'nohup npx agentbus-cli listen --exec "bash /opt/handle.sh" &'
 ```
 
 `/opt/handle.sh` reads one JSON message on stdin and does whatever the box is for. The box now receives team messages and can post results back with `agentbus post caspian "..."`.
@@ -20,7 +20,7 @@ daytona ssh pgbox -- 'nohup npx agentbus listen --exec "bash /opt/handle.sh" &'
 
 ```bash
 daytona ssh pgbox -- 'sudo apt-get install -y postgresql && sudo -u postgres psql -c "create database team;"'
-daytona ssh pgbox -- 'npx agentbus profile set --name pgbox --kind box --caps sql,postgres --unlisted'
+daytona ssh pgbox -- 'npx agentbus-cli profile set --name pgbox --kind box --caps sql,postgres --unlisted'
 ```
 
 Handler that runs SQL it is sent, members only by construction (only members can reach a space topic):

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { address, generate, makeInvite, newSpaceKey, type Envelope } from "@agentbus/sdk";
+import { address, generate, makeInvite, newSpaceKey, type Envelope } from "agentbus-sdk";
 import { createServer } from "../src/server";
 
 describe("agentbus MCP server", () => {
@@ -26,7 +26,7 @@ describe("agentbus MCP server", () => {
       if (url.pathname === "/v1/send") { const e = JSON.parse(String(init.body)); return Response.json({ id: e.id, seq: 9 }, { status: 202 }); }
       if (url.pathname === "/v1/inbox") {
         // an invite from `other` sealed to the server's own keys: read the key file the server wrote
-        const { decodeKeys } = await import("@agentbus/sdk");
+        const { decodeKeys } = await import("agentbus-sdk");
         const { readFileSync } = await import("node:fs");
         const mine = decodeKeys(readFileSync(join(env.AGENTBUS_HOME, "key.json"), "utf8"));
         const inv = makeInvite(other, address(mine.pub), mine.pub, key);
@@ -52,7 +52,7 @@ describe("agentbus MCP server", () => {
 
     const who = await client.callTool({ name: "whoami", arguments: {} });
     expect(existsSync(join(env.AGENTBUS_HOME, "key.json"))).toBe(true);
-    const { decodeKeys: dk } = await import("@agentbus/sdk");
+    const { decodeKeys: dk } = await import("agentbus-sdk");
     const { readFileSync: rf } = await import("node:fs");
     expect(JSON.parse((who.content as any)[0].text).address).toBe(address(dk(rf(join(env.AGENTBUS_HOME, "key.json"), "utf8")).pub));
     expect(myAddress).toMatch(/^ab:/);

@@ -1,6 +1,6 @@
 /** agentbus hub: Hono router in front of the Durable Objects. */
 import { Hono } from "hono";
-import { address, canonical, isAddress, pubFromJson, verify, fromB64 } from "@agentbus/sdk";
+import { address, canonical, isAddress, pubFromJson, verify, fromB64 } from "agentbus-sdk";
 import { directory, signedAuth, type Vars } from "./shared";
 import { messaging } from "./routes/messaging";
 import { spaces } from "./routes/spaces";

@@ -1,6 +1,6 @@
 /** Helpers shared by route modules: directory stub and signed-request middleware. */
 import type { Context, Next } from "hono";
-import { checkSignedHeaders, isAddress, pubFromJson } from "@agentbus/sdk";
+import { checkSignedHeaders, isAddress, pubFromJson } from "agentbus-sdk";
 import type { Env } from "./env";
 import type { Directory } from "./do/directory";
 

@@ -2,7 +2,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { decodeKeys, encodeKeys, generate, type Keys } from "@agentbus/sdk";
+import { decodeKeys, encodeKeys, generate, type Keys } from "agentbus-sdk";
 
 export const DEFAULT_HUB = "https://agentbus.citecheck.workers.dev";
 
@@ -60,7 +60,7 @@ export function writeCursor(seq: number, env: NodeJS.ProcessEnv = process.env): 
 }
 
 // Space keys: ~/.agentbus/spaces/<space_id>.json, one SpaceKey each. Never leave this machine unsealed.
-import type { SpaceKey } from "@agentbus/sdk";
+import type { SpaceKey } from "agentbus-sdk";
 import { readdirSync } from "node:fs";
 
 export function spacesDir(env: NodeJS.ProcessEnv = process.env): string {

@@ -1,6 +1,6 @@
 import { SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { address, build, generate, type Envelope } from "@agentbus/sdk";
+import { address, build, generate, type Envelope } from "agentbus-sdk";
 import { decide, dayKey, limits } from "../src/fee";
 import { register } from "./agents.test";
 
@@ -42,14 +42,14 @@ describe("stranger fee on /v1/send (test bindings: 3 free per day, 5 in-space pe
     expect(res.headers.get("www-authenticate") ?? "").toMatch(/^Payment /);
     expect(res.headers.get("www-authenticate") ?? "").toContain('method="tempo"');
     // and the message was not delivered
-    const inbox = await SELF.fetch(`${HUB}/v1/inbox?since=0`, { headers: (await import("@agentbus/sdk")).signedHeaders(targets[3].keys, "GET", "/v1/inbox") });
+    const inbox = await SELF.fetch(`${HUB}/v1/inbox?since=0`, { headers: (await import("agentbus-sdk")).signedHeaders(targets[3].keys, "GET", "/v1/inbox") });
     expect(((await inbox.json()) as { messages: unknown[] }).messages).toHaveLength(0);
   });
 
   it("sends inside a shared space never count against the allowance", async () => {
     const { keys: a } = await register();
     const { keys: b } = await register();
-    const { signedHeaders } = await import("@agentbus/sdk");
+    const { signedHeaders } = await import("agentbus-sdk");
     const created = await SELF.fetch(`${HUB}/v1/spaces`, { method: "POST", headers: { ...signedHeaders(a, "POST", "/v1/spaces"), "content-type": "application/json" }, body: JSON.stringify({ name: "s" }) });
     const id = ((await created.json()) as { id: string }).id;
     await SELF.fetch(`${HUB}/v1/spaces/${id}/members`, { method: "POST", headers: { ...signedHeaders(a, "POST", `/v1/spaces/${id}/members`), "content-type": "application/json" }, body: JSON.stringify({ address: address(b.pub) }) });

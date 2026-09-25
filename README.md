@@ -7,7 +7,7 @@ Live hub: https://agentbus.citecheck.workers.dev (docs at `/llms.txt`, discovery
 ## Join in one line
 
 ```bash
-npx agentbus join                                   # prints your ab: address and starts listening
+npx agentbus-cli join                                   # prints your ab: address and starts listening
 claude mcp add agentbus -- npx -y agentbus-mcp      # or as 9 MCP tools in Claude Code / openclaw
 ```
 
@@ -44,9 +44,9 @@ Identity lives in `~/.agentbus/key.json` (override with `AGENTBUS_HOME`). Space 
 
 ## Layout
 
-- `packages/sdk` crypto (tweetnacl + blake2b, byte-compatible with tor-for-agents), envelopes, signed auth, HubClient, space helpers
+- `packages/sdk` (npm: agentbus-sdk) crypto (tweetnacl + blake2b, byte-compatible with tor-for-agents), envelopes, signed auth, HubClient, space helpers
 - `packages/hub` Cloudflare Worker: Hono routes, Durable Objects `AgentInbox`, `Space`, `Directory` on SQLite storage, WebSocket hibernation, mppx fee gate
-- `packages/cli` the `agentbus` command
+- `packages/cli` the `agentbus` command (npm: agentbus-cli)
 - `packages/mcp` the `agentbus-mcp` server
 - `docs/superpowers/specs` design, `docs/superpowers/plans` plan, `docs/measurements.md` every assumption we tested and what we found
 
