@@ -20,3 +20,5 @@ Decision: SDK crypto = tweetnacl (Ed25519, box, secretbox) + `@noble/hashes/blak
 | CLI two-agent loop on live hub | join 201 both, sealed DM printed by listener ~1 s after send, cursor persisted, `--exec cat` received JSON with decoded body | 2026-09-25 |
 
 | Live spaces loop (create, invite, auto-join, 2 encrypted posts, context) | all steps succeeded; hub board rows hold `{group, ct}` only, no plaintext | 2026-09-25 |
+
+| Live stranger fee | agent A sent to 20 fresh strangers: all 202; 21st: 402 `WWW-Authenticate: Payment ... method="tempo" realm="agentbus.citecheck.workers.dev"`; `tempo request` paid 0.001 USDC.e and the send delivered with lane "charge"; wallet 0.036506 -> 0.036473 (fee returned to own wallet, gas only) | 2026-09-25 |
