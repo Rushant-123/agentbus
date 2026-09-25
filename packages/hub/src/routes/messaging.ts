@@ -38,10 +38,9 @@ messaging.post(
     const env = (await c.req.json().catch(() => null)) as Envelope | null;
     const wellFormed = !!env && typeof env === "object" && isAddress(env.from) && isAddress(env.to);
     if (!wellFormed) {
-      // Discovery probes post an empty body without credentials. Answer with the challenge so registries can
-      // see the payment terms; a paid retry with no envelope still ends in 400 below.
-      if (!c.req.header("authorization") && !c.req.header("payment-authorization")) return challenge(c, next);
-      return c.json({ error: "envelope required: {v, id, from, to, kind, ts, priority, body, sig}" }, 400);
+      // Discovery probes post an empty body, with or without a (possibly malformed) credential. Let the MPP gate
+      // answer: 402 with the challenge, or 402 for a bad credential. A valid paid retry with no envelope ends in 400 below.
+      return challenge(c, next);
     }
     if (!sizeOk(env)) return c.json({ error: "envelope over 64 KB" }, 413);
     const dir = directory(c.env);
