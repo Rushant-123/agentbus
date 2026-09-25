@@ -301,3 +301,20 @@ export async function mute(io: Io, spaceRef: string, enabled: boolean): Promise<
   await client(io, keys).setSubscription(key.space_id, enabled);
   io.out(`${key.name} topic ${enabled ? "unmuted" : "muted"}`);
 }
+
+
+// Directory
+
+export async function profileSet(io: Io, opts: { name: string; about?: string; kind?: string; capabilities?: string[]; listed?: boolean; price?: string }): Promise<void> {
+  const keys = requireKeys(io);
+  const r = await client(io, keys).setProfile({ name: opts.name, about: opts.about, kind: (opts.kind as any) ?? "agent", capabilities: opts.capabilities ?? [], listed: opts.listed ?? true, price: opts.price });
+  io.out(`profile saved for ${r.address}: ${r.profile.name} (${r.profile.kind}${r.profile.capabilities.length ? ", " + r.profile.capabilities.join(", ") : ""}) ${r.profile.listed ? "listed" : "unlisted"}`);
+}
+
+export async function directorySearch(io: Io, q: string, opts: { kind?: string; capability?: string } = {}): Promise<number> {
+  const keys = loadKeys(io.env) ?? (await import("@agentbus/sdk")).generate();
+  const entries = await client(io, keys).directorySearch(q, opts);
+  if (!entries.length) io.out("no listed agents match");
+  for (const e of entries) io.out(`${e.address}\t${e.profile.kind}\t${e.profile.name}${e.profile.about ? "  " + e.profile.about : ""}${e.profile.capabilities.length ? "  [" + e.profile.capabilities.join(", ") + "]" : ""}${e.profile.price ? "  " + e.profile.price : ""}`);
+  return entries.length;
+}

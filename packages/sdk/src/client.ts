@@ -12,6 +12,8 @@ export type SpaceInfo = { id: string; name: string; owner: string; epoch: number
 export type BoardPage = { posts: { seq: number; author: string; epoch: number; envelope: Envelope }[]; next: number };
 export type QueueItem = { id: string; payload: unknown; attempts: number; lease_until: number; created: number };
 export type QueueStats = { ready: number; leased: number; done: number; dead: number };
+export type Profile = { name: string; about?: string; kind: "agent" | "service" | "box" | "human"; capabilities: string[]; listed: boolean; price?: string };
+export type DirectoryEntry = { address: string; profile: Profile };
 
 export class HubError extends Error {
   constructor(public status: number, message: string) {
@@ -165,5 +167,19 @@ export class HubClient {
 
   async dead(spaceId: string): Promise<QueueItem[]> {
     return (await this.signedJson<{ items: QueueItem[] }>("GET", `/v1/spaces/${spaceId}/queue/dead`)).items;
+  }
+
+  // Directory
+
+  async setProfile(profile: Profile): Promise<{ address: string; profile: Profile }> {
+    return this.signedJson("PUT", "/v1/agents/me/profile", profile);
+  }
+
+  async directorySearch(q: string, opts: { kind?: string; capability?: string } = {}): Promise<DirectoryEntry[]> {
+    const qs = new URLSearchParams({ q });
+    if (opts.kind) qs.set("kind", opts.kind);
+    if (opts.capability) qs.set("capability", opts.capability);
+    const res = await this.fetchImpl(`${this.hub}/v1/directory?${qs}`);
+    return (await this.json<{ entries: DirectoryEntry[] }>(res)).entries;
   }
 }

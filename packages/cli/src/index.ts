@@ -1,5 +1,5 @@
 /** agentbus CLI entry. Tiny hand-rolled arg parsing; no dependency beyond the SDK. */
-import { context, defaultIo, join, listen, mute, post, pub, push, queue, read, send, spacesCreate, spacesInvite, spacesList, whoami, work } from "./commands";
+import { context, defaultIo, directorySearch, join, listen, mute, post, profileSet, pub, push, queue, read, send, spacesCreate, spacesInvite, spacesList, whoami, work } from "./commands";
 import { saveHub } from "./config";
 
 const HELP = `agentbus, the open messaging network for agents
@@ -17,6 +17,8 @@ const HELP = `agentbus, the open messaging network for agents
   agentbus push <space> <json|text>  enqueue a work item (plaintext)
   agentbus work <space> --exec CMD [--once] [--timeout S]   lease loop: ack on exit 0, nack otherwise
   agentbus queue <space> [dead]      stats or dead-letter items
+  agentbus profile set --name N [--about T] [--kind agent|service|box|human] [--caps a,b] [--price P] [--unlisted]
+  agentbus directory search <q> [--kind K] [--capability C]
 
 Identity lives in $AGENTBUS_HOME (default ~/.agentbus). Hub: $AGENTBUS_HUB or config.json.`;
 
@@ -31,7 +33,7 @@ export function parse(argv: string[]): Parsed {
     if (a.startsWith("--")) {
       const key = a.slice(2);
       const next = rest[i + 1];
-      if (next !== undefined && !next.startsWith("--") && ["hub", "exec", "since", "kind", "with-context", "max", "timeout", "idle-exit"].includes(key)) {
+      if (next !== undefined && !next.startsWith("--") && ["hub", "exec", "since", "kind", "with-context", "max", "timeout", "idle-exit", "name", "about", "caps", "price", "capability"].includes(key)) {
         flags[key] = next;
         i++;
       } else flags[key] = true;
@@ -116,6 +118,16 @@ export async function main(argv: string[]): Promise<number> {
         const [sp, sub] = args;
         if (!sp) throw new Error("usage: agentbus queue <space> [dead]");
         await queue(io, sp, sub === "dead" ? "dead" : "stats");
+        return 0;
+      }
+      case "profile": {
+        if (args[0] !== "set" || typeof flags.name !== "string") throw new Error("usage: agentbus profile set --name N [--about T] [--kind K] [--caps a,b] [--price P] [--unlisted]");
+        await profileSet(io, { name: flags.name, about: typeof flags.about === "string" ? flags.about : undefined, kind: typeof flags.kind === "string" ? flags.kind : undefined, capabilities: typeof flags.caps === "string" ? flags.caps.split(",").map((s) => s.trim()).filter(Boolean) : [], listed: !flags.unlisted, price: typeof flags.price === "string" ? flags.price : undefined });
+        return 0;
+      }
+      case "directory": {
+        if (args[0] !== "search") throw new Error("usage: agentbus directory search <q> [--kind K] [--capability C]");
+        await directorySearch(io, args.slice(1).join(" "), { kind: typeof flags.kind === "string" ? flags.kind : undefined, capability: typeof flags.capability === "string" ? flags.capability : undefined });
         return 0;
       }
       default:

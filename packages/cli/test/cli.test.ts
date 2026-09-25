@@ -4,7 +4,7 @@ import { join as pjoin } from "node:path";
 import { describe, expect, it } from "vitest";
 import { address, build, buildPost, decodeKeys, generate, newSpaceKey, seal, toB64, verifyEnvelope, type Envelope } from "@agentbus/sdk";
 import { saveSpaceKey } from "../src/config";
-import { context, join, listen, post, pub, push, read, send, spacesCreate, spacesInvite, spacesList, whoami, work, type Io } from "../src/commands";
+import { context, directorySearch, join, listen, post, profileSet, pub, push, read, send, spacesCreate, spacesInvite, spacesList, whoami, work, type Io } from "../src/commands";
 import { parse } from "../src/index";
 
 function fakeIo(handler: (url: URL, init: RequestInit) => Response | Promise<Response>, wsFrames: string[] = []) {
@@ -223,5 +223,26 @@ describe("cli topic decryption in listen", () => {
     await listen(l.io, { since: 0 });
     expect(l.out[0]).toContain("#ops");
     expect(l.out[0]).toContain("deploy finished");
+  });
+});
+
+
+describe("cli directory", () => {
+  it("profile set signs a PUT; directory search prints entries", async () => {
+    let put: any;
+    const { io, out } = fakeIo(async (url, init) => {
+      if (url.pathname === "/v1/agents") return Response.json({ address: "x" }, { status: 201 });
+      if (url.pathname === "/v1/agents/me/profile") { put = { headers: init.headers, body: JSON.parse(String(init.body)) }; return Response.json({ address: "ab:1", profile: put.body }); }
+      if (url.pathname === "/v1/directory") { expect(url.searchParams.get("q")).toBe("cite"); expect(url.searchParams.get("kind")).toBe("service"); return Response.json({ entries: [{ address: "ab:1", profile: { name: "citecheck", kind: "service", capabilities: ["citations"], listed: true, price: "$0.02" } }] }); }
+      return Response.json({ error: "unexpected" }, { status: 500 });
+    });
+    await join(io);
+    await profileSet(io, { name: "citecheck", kind: "service", capabilities: ["citations"], price: "$0.02" });
+    expect((put.headers as Record<string, string>)["x-sig"]).toBeTruthy();
+    expect(put.body).toMatchObject({ name: "citecheck", kind: "service", listed: true });
+    const n = await directorySearch(io, "cite", { kind: "service" });
+    expect(n).toBe(1);
+    expect(out.at(-1)).toContain("citecheck");
+    expect(out.at(-1)).toContain("[citations]");
   });
 });
