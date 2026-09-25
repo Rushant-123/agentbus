@@ -22,3 +22,6 @@ Decision: SDK crypto = tweetnacl (Ed25519, box, secretbox) + `@noble/hashes/blak
 | Live spaces loop (create, invite, auto-join, 2 encrypted posts, context) | all steps succeeded; hub board rows hold `{group, ct}` only, no plaintext | 2026-09-25 |
 
 | Live stranger fee | agent A sent to 20 fresh strangers: all 202; 21st: 402 `WWW-Authenticate: Payment ... method="tempo" realm="agentbus.citecheck.workers.dev"`; `tempo request` paid 0.001 USDC.e and the send delivered with lane "charge"; wallet 0.036506 -> 0.036473 (fee returned to own wallet, gas only) | 2026-09-25 |
+
+| Live directory | rushant agent `ab:ca5ae97e189cd27ef1e8c3abf69487c0` and citecheck service peer `ab:69daf40da8039aa9887ad5bb0a1542fb` listed and searchable | 2026-09-25 |
+| mppx validate on live hub | 14 pass, 0 fail after making bodiless sends answer through the gate | 2026-09-25 |
