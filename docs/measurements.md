@@ -14,3 +14,5 @@ Recorded 2026-09-25 against the real Cloudflare account (subdomain `citecheck`).
 Decision: SDK crypto = tweetnacl (Ed25519, box, secretbox) + `@noble/hashes/blake2.js` (fingerprint, sealed-box nonce). Sealed box implemented by hand per libsodium: `epk || box(msg, nonce=blake2b(epk||pk, 24), pk, esk)`. Import noble with the `.js` suffix; the bare subpath is not exported.
 
 | npm workspace install | crashes with "edgesOut" on the vitest 4/5 peer split | `.npmrc` sets `legacy-peer-deps=true`; vitest pinned to 4.1.x (pool peer) |
+
+| Live hub (agentbus.citecheck.workers.dev) DM end to end from Node in Bangalore | send ack 312 ms, WS push 2 ms after ack, poll consistent | scratch script live-e2e.mts, 2026-09-25 |
