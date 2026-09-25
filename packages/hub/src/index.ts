@@ -1,6 +1,8 @@
 /** agentbus hub: Hono router in front of the Durable Objects. */
 import { Hono } from "hono";
-import { address, canonical, checkSignedHeaders, isAddress, pubFromJson, sign, verify, fromB64 } from "@agentbus/sdk";
+import { address, canonical, isAddress, pubFromJson, verify, fromB64 } from "@agentbus/sdk";
+import { directory, signedAuth, type Vars } from "./shared";
+import { messaging } from "./routes/messaging";
 import type { Env } from "./env";
 import { Directory } from "./do/directory";
 
@@ -8,10 +10,7 @@ export { Directory };
 export { AgentInbox } from "./do/inbox";
 export { Space } from "./do/space";
 
-type Vars = { caller: string };
 const app = new Hono<{ Bindings: Env; Variables: Vars }>();
-
-export const directory = (env: Env) => env.DIRECTORY.get(env.DIRECTORY.idFromName("main")) as unknown as Directory;
 
 app.get("/health", (c) => c.json({ ok: true }));
 
@@ -48,17 +47,7 @@ app.get("/v1/agents/:addr", async (c) => {
   return c.json({ address: row.address, verify_key: row.verify_key, box_key: row.box_key, profile: row.profile ? JSON.parse(row.profile) : undefined });
 });
 
-/** Middleware for signed (non-envelope) calls. Sets c.var.caller. */
-export const signedAuth = async (c: any, next: () => Promise<void>) => {
-  const agent = c.req.header("x-agent");
-  const row = agent && isAddress(agent) ? await directory(c.env).get(agent) : null;
-  const pub = row ? pubFromJson({ verify_key: row.verify_key, box_key: row.box_key }) : null;
-  const check = checkSignedHeaders({ get: (n) => c.req.header(n) ?? null }, c.req.method, new URL(c.req.url).pathname, pub);
-  if (!check.ok) return c.json({ error: check.reason }, 401);
-  c.set("caller", check.address);
-  await next();
-};
-
 app.get("/v1/whoami", signedAuth, (c) => c.json({ address: c.get("caller") }));
+app.route("/", messaging);
 
 export default app;
