@@ -65,3 +65,12 @@ describe("stranger fee on /v1/send (test bindings: 3 free per day, 5 in-space pe
     expect((await send(build(a, { to: address(c.pub), kind: "dm", body: { plain: "x" } }))).status).toBe(202);
   });
 });
+
+
+describe("discovery probe", () => {
+  it("an unauthenticated POST /v1/send with no envelope gets the 402 challenge, not a 400", async () => {
+    const res = await SELF.fetch(`${HUB}/v1/send`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    expect(res.status).toBe(402);
+    expect(res.headers.get("www-authenticate") ?? "").toMatch(/^Payment /);
+  });
+});
