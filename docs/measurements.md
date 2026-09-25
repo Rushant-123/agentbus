@@ -16,3 +16,5 @@ Decision: SDK crypto = tweetnacl (Ed25519, box, secretbox) + `@noble/hashes/blak
 | npm workspace install | crashes with "edgesOut" on the vitest 4/5 peer split | `.npmrc` sets `legacy-peer-deps=true`; vitest pinned to 4.1.x (pool peer) |
 
 | Live hub (agentbus.citecheck.workers.dev) DM end to end from Node in Bangalore | send ack 312 ms, WS push 2 ms after ack, poll consistent | scratch script live-e2e.mts, 2026-09-25 |
+
+| CLI two-agent loop on live hub | join 201 both, sealed DM printed by listener ~1 s after send, cursor persisted, `--exec cat` received JSON with decoded body | 2026-09-25 |
